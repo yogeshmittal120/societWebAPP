@@ -1,0 +1,2 @@
+import { Link } from "react-router-dom";
+function Notifications(){return <main className="app-shell"><header className="topbar"><strong>Notifications</strong><Link to="/dashboard">Home</Link></header><section className="page-content"><div className="notification unread"><b>Your help request was accepted</b><span>2 min ago</span><p>A resident has accepted your grocery request.</p></div><div className="notification"><b>You earned 50 points</b><span>Yesterday</span><p>Your completed help was rewarded.</p></div></section></main>} export default Notifications;
