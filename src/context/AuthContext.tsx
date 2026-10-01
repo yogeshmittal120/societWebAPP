@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { AuthUser } from "../types/auth";
 
 interface AuthContextValue {
@@ -13,7 +13,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
 
-  const setUser = (nextUser: AuthUser | null) => {
+  const setUser = useCallback((nextUser: AuthUser | null) => {
     setUserState(nextUser);
   };
 
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser,
       logout,
     }),
-    [user],
+    [user, setUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
