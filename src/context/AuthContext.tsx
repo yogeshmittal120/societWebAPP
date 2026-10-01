@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserState(nextUser);
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("access_token");
     setUserState(null);
   };
