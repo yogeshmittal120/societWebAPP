@@ -30,3 +30,30 @@ export async function apiRequest<T>(
 
   return response.json() as Promise<T>;
 }
+
+export async function loginRequest(email: string, password: string) {
+  const body = new URLSearchParams();
+  body.set("username", email);
+  body.set("password", password);
+
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    let message = `Login failed with status ${response.status}`;
+    try {
+      const data = await response.json();
+      message = data.detail ?? message;
+    } catch {
+      // Keep the status-based message when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<{ access_token: string; token_type: string }>;
+}
