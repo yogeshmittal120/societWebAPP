@@ -15,12 +15,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setUser = useCallback((nextUser: AuthUser | null) => {
     setUserState(nextUser);
-  };
+  }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem("access_token");
     setUserState(null);
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
