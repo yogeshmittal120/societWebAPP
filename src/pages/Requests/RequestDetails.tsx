@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
 
 interface HelpRequest {
   id: string;
@@ -10,6 +11,8 @@ interface HelpRequest {
   delivery_location: string;
   status: string;
   created_at: string;
+  requester_id?: string | null;
+  accepted_by_id?: string | null;
 }
 
 interface AcceptResponse {
@@ -25,43 +28,50 @@ interface DeliverResponse {
   delivered_at: string;
 }
 
+interface CompleteResponse {
+  request_id: string;
+  status: string;
+  completed_at: string;
+}
+
 function RequestDetails() {
   const [searchParams] = useSearchParams();
   const requestId = searchParams.get("id");
+  const { user } = useAuth();
 
   const [request, setRequest] = useState<HelpRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
   const [isDelivering, setIsDelivering] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [error, setError] = useState("");
 
-  const loadRequest = async () => {
-    if (!requestId) {
-      setError("Request ID is missing.");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setError("");
-      const data = await apiRequest<HelpRequest>(
-        `/help-requests/${requestId}`,
-      );
-      setRequest(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load request");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    async function loadRequest() {
+      if (!requestId) {
+        setError("Request ID is missing.");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setError("");
+        const data = await apiRequest<HelpRequest>(
+          `/help-requests/${requestId}`,
+        );
+        setRequest(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to load request");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
     void loadRequest();
   }, [requestId]);
 
   const handleAccept = async () => {
     if (!requestId) return;
-
     setError("");
     setIsAccepting(true);
 
@@ -70,14 +80,13 @@ function RequestDetails() {
         `/help-requests/${requestId}/accept`,
         { method: "POST" },
       );
-
       setRequest((current) =>
-        current ? { ...current, status: result.status } : current,
+        current
+          ? { ...current, status: result.status, accepted_by_id: result.accepted_by_id }
+          : current,
       );
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to accept request",
-      );
+      setError(err instanceof Error ? err.message : "Unable to accept request");
     } finally {
       setIsAccepting(false);
     }
@@ -85,7 +94,6 @@ function RequestDetails() {
 
   const handleDeliver = async () => {
     if (!requestId) return;
-
     setError("");
     setIsDelivering(true);
 
@@ -94,7 +102,6 @@ function RequestDetails() {
         `/help-requests/${requestId}/deliver`,
         { method: "POST" },
       );
-
       setRequest((current) =>
         current ? { ...current, status: result.status } : current,
       );
@@ -107,6 +114,31 @@ function RequestDetails() {
     }
   };
 
+  const handleComplete = async () => {
+    if (!requestId) return;
+    setError("");
+    setIsCompleting(true);
+
+    try {
+      const result = await apiRequest<CompleteResponse>(
+        `/help-requests/${requestId}/complete`,
+        { method: "POST" },
+      );
+      setRequest((current) =>
+        current ? { ...current, status: result.status } : current,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to confirm completion",
+      );
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const isRequester = request?.requester_id === user?.id;
+  const isHelper = request?.accepted_by_id === user?.id;
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -117,7 +149,6 @@ function RequestDetails() {
       <section className="detail-page">
         <article className="detail-card">
           {isLoading && <p>Loading request...</p>}
-
           {!isLoading && error && <p className="form-error">{error}</p>}
 
           {!isLoading && request && (
@@ -137,9 +168,7 @@ function RequestDetails() {
                 </div>
                 <div>
                   <span>Posted</span>
-                  <strong>
-                    {new Date(request.created_at).toLocaleString()}
-                  </strong>
+                  <strong>{new Date(request.created_at).toLocaleString()}</strong>
                 </div>
               </div>
 
@@ -148,7 +177,7 @@ function RequestDetails() {
                 be handled inside the app.
               </div>
 
-              {request.status === "OPEN" && (
+              {request.status === "OPEN" && !isRequester && (
                 <div className="form-actions">
                   <Link to="/requests">Go back</Link>
                   <button
@@ -162,7 +191,11 @@ function RequestDetails() {
                 </div>
               )}
 
-              {request.status === "ACCEPTED" && (
+              {request.status === "OPEN" && isRequester && (
+                <div className="notice">This is your request. Waiting for a resident to accept it.</div>
+              )}
+
+              {request.status === "ACCEPTED" && isHelper && (
                 <div className="form-actions">
                   <Link to="/requests">Go back</Link>
                   <button
@@ -176,11 +209,30 @@ function RequestDetails() {
                 </div>
               )}
 
-              {request.status === "DELIVERED" && (
-                <div className="notice">
-                  Delivery marked successfully. Waiting for the requester to
-                  confirm completion.
+              {request.status === "ACCEPTED" && isRequester && (
+                <div className="notice">A resident has accepted your request and is handling the delivery.</div>
+              )}
+
+              {request.status === "DELIVERED" && isRequester && (
+                <div className="form-actions">
+                  <Link to="/requests">Back</Link>
+                  <button
+                    className="primary-btn"
+                    type="button"
+                    onClick={handleComplete}
+                    disabled={isCompleting}
+                  >
+                    {isCompleting ? "Confirming..." : "Confirm Completion"}
+                  </button>
                 </div>
+              )}
+
+              {request.status === "DELIVERED" && isHelper && (
+                <div className="notice">Delivery marked. Waiting for the requester to confirm completion.</div>
+              )}
+
+              {request.status === "COMPLETED" && (
+                <div className="notice">Request completed successfully.</div>
               )}
             </>
           )}
