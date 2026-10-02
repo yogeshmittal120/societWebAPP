@@ -20,3 +20,5 @@ body,
 body {
   margin: 0;
 }
+
+.form-success { color: #166534; margin: 0; font-size: 0.9rem; }
