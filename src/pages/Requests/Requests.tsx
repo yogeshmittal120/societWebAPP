@@ -20,11 +20,21 @@ interface CompleteResponse {
   completed_at: string;
 }
 
+interface RewardResponse {
+  request_id: string;
+  helper_id: string;
+  points_awarded: number;
+  helper_balance_points: number;
+}
+
 function Requests() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<HelpRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [rewardingId, setRewardingId] = useState<string | null>(null);
+  const [rewardPoints, setRewardPoints] = useState<Record<string, number>>({});
+  const [rewardedIds, setRewardedIds] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -62,6 +72,27 @@ function Requests() {
     }
   };
 
+  const handleReward = async (requestId: string) => {
+    const points = rewardPoints[requestId] ?? 10;
+    setError("");
+    setRewardingId(requestId);
+
+    try {
+      await apiRequest<RewardResponse>(`/help-requests/${requestId}/reward`, {
+        method: "POST",
+        body: JSON.stringify({ points }),
+      });
+
+      setRewardedIds((current) => ({ ...current, [requestId]: true }));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to award reward",
+      );
+    } finally {
+      setRewardingId(null);
+    }
+  };
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -96,6 +127,8 @@ function Requests() {
               const isMyAcceptedRequest = request.accepted_by_id === user?.id;
               const canComplete =
                 isMyRequest && request.status === "DELIVERED";
+              const canReward =
+                isMyRequest && request.status === "COMPLETED";
 
               return (
                 <article className="list-card" key={request.id}>
@@ -124,7 +157,9 @@ function Requests() {
                             ? isMyRequest
                               ? "Action required"
                               : "Delivered"
-                            : "Completed"}
+                            : canReward
+                              ? "Choose reward"
+                              : "Completed"}
                     </strong>
 
                     <Link to={`/requests/details?id=${request.id}`}>
@@ -142,6 +177,39 @@ function Requests() {
                           ? "Confirming..."
                           : "Confirm Completion"}
                       </button>
+                    )}
+
+                    {canReward && !rewardedIds[request.id] && (
+                      <div className="form-actions">
+                        <select
+                          value={rewardPoints[request.id] ?? 10}
+                          onChange={(event) =>
+                            setRewardPoints((current) => ({
+                              ...current,
+                              [request.id]: Number(event.target.value),
+                            }))
+                          }
+                        >
+                          <option value={10}>10 points</option>
+                          <option value={20}>20 points</option>
+                          <option value={50}>50 points</option>
+                          <option value={100}>100 points</option>
+                        </select>
+                        <button
+                          className="primary-btn compact"
+                          type="button"
+                          onClick={() => handleReward(request.id)}
+                          disabled={rewardingId === request.id}
+                        >
+                          {rewardingId === request.id
+                            ? "Awarding..."
+                            : "Give Reward"}
+                        </button>
+                      </div>
+                    )}
+
+                    {canReward && rewardedIds[request.id] && (
+                      <div className="notice">Reward awarded successfully.</div>
                     )}
                   </div>
                 </article>
