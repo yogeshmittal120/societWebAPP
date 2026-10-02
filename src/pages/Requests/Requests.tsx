@@ -14,10 +14,17 @@ interface HelpRequest {
   accepted_by_id?: string | null;
 }
 
+interface CompleteResponse {
+  request_id: string;
+  status: string;
+  completed_at: string;
+}
+
 function Requests() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<HelpRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [completingId, setCompletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -28,6 +35,32 @@ function Requests() {
       )
       .finally(() => setIsLoading(false));
   }, []);
+
+  const handleComplete = async (requestId: string) => {
+    setError("");
+    setCompletingId(requestId);
+
+    try {
+      const result = await apiRequest<CompleteResponse>(
+        `/help-requests/${requestId}/complete`,
+        { method: "POST" },
+      );
+
+      setRequests((current) =>
+        current.map((request) =>
+          request.id === requestId
+            ? { ...request, status: result.status }
+            : request,
+        ),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to confirm completion",
+      );
+    } finally {
+      setCompletingId(null);
+    }
+  };
 
   return (
     <main className="app-shell">
@@ -61,6 +94,8 @@ function Requests() {
             {requests.map((request) => {
               const isMyRequest = request.requester_id === user?.id;
               const isMyAcceptedRequest = request.accepted_by_id === user?.id;
+              const canComplete =
+                isMyRequest && request.status === "DELIVERED";
 
               return (
                 <article className="list-card" key={request.id}>
@@ -91,7 +126,23 @@ function Requests() {
                               : "Delivered"
                             : "Completed"}
                     </strong>
-                    <Link to={`/requests/details?id=${request.id}`}>View</Link>
+
+                    <Link to={`/requests/details?id=${request.id}`}>
+                      View
+                    </Link>
+
+                    {canComplete && (
+                      <button
+                        className="primary-btn compact"
+                        type="button"
+                        onClick={() => handleComplete(request.id)}
+                        disabled={completingId === request.id}
+                      >
+                        {completingId === request.id
+                          ? "Confirming..."
+                          : "Confirm Completion"}
+                      </button>
+                    )}
                   </div>
                 </article>
               );
