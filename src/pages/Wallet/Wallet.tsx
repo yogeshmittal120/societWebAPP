@@ -31,7 +31,7 @@ function Wallet() {
         setTransactions(transactionData);
       })
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Unable to load wallet"),
+        setError(err instanceof Error ? err.message : "Unable to load appreciation points"),
       )
       .finally(() => setIsLoading(false));
   }, []);
@@ -39,7 +39,7 @@ function Wallet() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <strong>My wallet</strong>
+        <strong>Appreciation points</strong>
         <nav>
           <Link to="/dashboard">Home</Link>
           <Link to="/requests">Requests</Link>
@@ -48,33 +48,33 @@ function Wallet() {
       </header>
 
       <section className="page-content">
-        {error && <div className="notice form-error">{error}</div>}
+        {error && <div className="notice form-error" role="alert">{error}</div>}
 
         <div className="wallet-hero">
-          <p>Available points</p>
+          <p>Your appreciation points</p>
           <strong>{isLoading ? "..." : wallet?.balance_points ?? 0}</strong>
-          <span>Reward points earned from helping neighbours</span>
+          <span>Points residents have awarded to thank you for helping neighbours.</span>
         </div>
 
         <div className="section-head">
-          <h2>Recent activity</h2>
+          <h2>Appreciation history</h2>
         </div>
 
         {isLoading ? (
-          <div className="notice">Loading wallet...</div>
+          <div className="notice" role="status">Loading appreciation history...</div>
         ) : transactions.length === 0 ? (
-          <div className="notice">No point transactions yet.</div>
+          <div className="notice">No appreciation points yet. Help a neighbour and they may choose to thank you with points.</div>
         ) : (
           <div className="transaction-list">
             {transactions.map((transaction) => (
               <div className="transaction" key={transaction.id}>
                 <div>
-                  <strong>{transaction.description}</strong>
+                  <strong>{transaction.description || "Appreciation points"}</strong>
                   <span>{new Date(transaction.created_at).toLocaleString()}</span>
                 </div>
                 <b>
                   {transaction.type === "EARN" ? "+" : "-"}
-                  {transaction.points}
+                  {transaction.points} pts
                 </b>
               </div>
             ))}
@@ -82,7 +82,7 @@ function Wallet() {
         )}
 
         <div className="notice">
-          Redemption will be enabled after the reward and redemption rules are finalized.
+          Appreciation points are free, optional recognition only. They are not money, cannot be purchased, and cannot be redeemed for cash. Actual item expenses are paid separately.
         </div>
       </section>
     </main>
