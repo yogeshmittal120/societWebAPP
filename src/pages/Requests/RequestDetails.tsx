@@ -22,16 +22,16 @@ interface AcceptResponse {
   accepted_at: string;
 }
 
-interface DeliverResponse {
+interface StatusResponse {
   request_id: string;
   status: string;
-  delivered_at: string;
 }
 
-interface CompleteResponse {
+interface RewardResponse {
   request_id: string;
-  status: string;
-  completed_at: string;
+  helper_id: string;
+  points_awarded: number;
+  helper_balance_points: number;
 }
 
 function RequestDetails() {
@@ -44,6 +44,9 @@ function RequestDetails() {
   const [isAccepting, setIsAccepting] = useState(false);
   const [isDelivering, setIsDelivering] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isRewarding, setIsRewarding] = useState(false);
+  const [selectedPoints, setSelectedPoints] = useState(10);
+  const [rewardSuccess, setRewardSuccess] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -56,9 +59,7 @@ function RequestDetails() {
 
       try {
         setError("");
-        const data = await apiRequest<HelpRequest>(
-          `/help-requests/${requestId}`,
-        );
+        const data = await apiRequest<HelpRequest>(`/help-requests/${requestId}`);
         setRequest(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load request");
@@ -74,17 +75,14 @@ function RequestDetails() {
     if (!requestId) return;
     setError("");
     setIsAccepting(true);
-
     try {
       const result = await apiRequest<AcceptResponse>(
         `/help-requests/${requestId}/accept`,
         { method: "POST" },
       );
-      setRequest((current) =>
-        current
-          ? { ...current, status: result.status, accepted_by_id: result.accepted_by_id }
-          : current,
-      );
+      setRequest((current) => current
+        ? { ...current, status: result.status, accepted_by_id: result.accepted_by_id }
+        : current);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to accept request");
     } finally {
@@ -96,19 +94,14 @@ function RequestDetails() {
     if (!requestId) return;
     setError("");
     setIsDelivering(true);
-
     try {
-      const result = await apiRequest<DeliverResponse>(
+      const result = await apiRequest<StatusResponse>(
         `/help-requests/${requestId}/deliver`,
         { method: "POST" },
       );
-      setRequest((current) =>
-        current ? { ...current, status: result.status } : current,
-      );
+      setRequest((current) => current ? { ...current, status: result.status } : current);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to mark request delivered",
-      );
+      setError(err instanceof Error ? err.message : "Unable to mark request delivered");
     } finally {
       setIsDelivering(false);
     }
@@ -118,21 +111,37 @@ function RequestDetails() {
     if (!requestId) return;
     setError("");
     setIsCompleting(true);
-
     try {
-      const result = await apiRequest<CompleteResponse>(
+      const result = await apiRequest<StatusResponse>(
         `/help-requests/${requestId}/complete`,
         { method: "POST" },
       );
-      setRequest((current) =>
-        current ? { ...current, status: result.status } : current,
-      );
+      setRequest((current) => current ? { ...current, status: result.status } : current);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to confirm completion",
-      );
+      setError(err instanceof Error ? err.message : "Unable to confirm completion");
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handleReward = async () => {
+    if (!requestId) return;
+    setError("");
+    setRewardSuccess("");
+    setIsRewarding(true);
+    try {
+      const result = await apiRequest<RewardResponse>(
+        `/help-requests/${requestId}/reward`,
+        {
+          method: "POST",
+          body: JSON.stringify({ points: selectedPoints }),
+        },
+      );
+      setRewardSuccess(`You awarded ${result.points_awarded} appreciation points. Thank you for recognising your neighbour!`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to award appreciation points");
+    } finally {
+      setIsRewarding(false);
     }
   };
 
@@ -148,8 +157,8 @@ function RequestDetails() {
 
       <section className="detail-page">
         <article className="detail-card">
-          {isLoading && <p>Loading request...</p>}
-          {!isLoading && error && <p className="form-error">{error}</p>}
+          {isLoading && <p role="status">Loading request...</p>}
+          {!isLoading && error && <p className="form-error" role="alert">{error}</p>}
 
           {!isLoading && request && (
             <>
@@ -158,34 +167,22 @@ function RequestDetails() {
               <p>{request.description}</p>
 
               <div className="detail-meta">
-                <div>
-                  <span>Pickup</span>
-                  <strong>{request.pickup_location || "Not specified"}</strong>
-                </div>
-                <div>
-                  <span>Delivery</span>
-                  <strong>{request.delivery_location}</strong>
-                </div>
-                <div>
-                  <span>Posted</span>
-                  <strong>{new Date(request.created_at).toLocaleString()}</strong>
-                </div>
+                <div><span>Pickup</span><strong>{request.pickup_location || "Not specified"}</strong></div>
+                <div><span>Delivery</span><strong>{request.delivery_location}</strong></div>
+                <div><span>Posted</span><strong>{new Date(request.created_at).toLocaleString()}</strong></div>
               </div>
 
               <div className="notice">
-                Your personal contact details stay private. Communication can
-                be handled inside the app.
+                Actual item costs are paid separately by the requester under an agreed arrangement. Appreciation points are optional recognition only and have no cash value.
+              </div>
+              <div className="notice">
+                Keep personal contact details private. Use the agreed safe handoff arrangements and report anything that feels unsafe.
               </div>
 
               {request.status === "OPEN" && !isRequester && (
                 <div className="form-actions">
                   <Link to="/requests">Go back</Link>
-                  <button
-                    className="primary-btn"
-                    type="button"
-                    onClick={handleAccept}
-                    disabled={isAccepting}
-                  >
+                  <button className="primary-btn" type="button" onClick={handleAccept} disabled={isAccepting}>
                     {isAccepting ? "Accepting..." : "Accept request"}
                   </button>
                 </div>
@@ -198,12 +195,7 @@ function RequestDetails() {
               {request.status === "ACCEPTED" && isHelper && (
                 <div className="form-actions">
                   <Link to="/requests">Go back</Link>
-                  <button
-                    className="primary-btn"
-                    type="button"
-                    onClick={handleDeliver}
-                    disabled={isDelivering}
-                  >
+                  <button className="primary-btn" type="button" onClick={handleDeliver} disabled={isDelivering}>
                     {isDelivering ? "Updating..." : "Mark as Delivered"}
                   </button>
                 </div>
@@ -216,12 +208,7 @@ function RequestDetails() {
               {request.status === "DELIVERED" && isRequester && (
                 <div className="form-actions">
                   <Link to="/requests">Back</Link>
-                  <button
-                    className="primary-btn"
-                    type="button"
-                    onClick={handleComplete}
-                    disabled={isCompleting}
-                  >
+                  <button className="primary-btn" type="button" onClick={handleComplete} disabled={isCompleting}>
                     {isCompleting ? "Confirming..." : "Confirm Completion"}
                   </button>
                 </div>
@@ -232,7 +219,36 @@ function RequestDetails() {
               )}
 
               {request.status === "COMPLETED" && (
-                <div className="notice">Request completed successfully.</div>
+                <>
+                  <div className="notice">Request completed successfully.</div>
+                  {isRequester && !rewardSuccess && (
+                    <section aria-labelledby="appreciation-title">
+                      <h2 id="appreciation-title">Thank your neighbour (optional)</h2>
+                      <p>Choose appreciation points if you want to recognise the help. You do not need to buy points.</p>
+                      <div className="filter-row" role="group" aria-label="Choose appreciation points">
+                        {[10, 20, 50, 100].map((points) => (
+                          <button
+                            key={points}
+                            type="button"
+                            className={selectedPoints === points ? "filter active" : "filter"}
+                            aria-pressed={selectedPoints === points}
+                            onClick={() => setSelectedPoints(points)}
+                          >
+                            {points} pts
+                          </button>
+                        ))}
+                      </div>
+                      <div className="form-actions">
+                        <Link to="/requests">Maybe later</Link>
+                        <button className="primary-btn" type="button" onClick={handleReward} disabled={isRewarding}>
+                          {isRewarding ? "Awarding..." : `Award ${selectedPoints} points`}
+                        </button>
+                      </div>
+                    </section>
+                  )}
+                  {rewardSuccess && <p className="form-success" role="status">{rewardSuccess}</p>}
+                  {isHelper && <p>Your neighbour has confirmed the request is complete. Appreciation points may be awarded separately.</p>}
+                </>
               )}
             </>
           )}
