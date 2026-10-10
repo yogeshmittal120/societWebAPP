@@ -4,6 +4,7 @@ import { apiRequest } from "../../api/client";
 
 interface RegisterResponse {
   user_id: string;
+  full_name: string;
   email: string;
   society_id: string;
   role: string;
@@ -35,6 +36,7 @@ function Register() {
       await apiRequest<RegisterResponse>("/auth/register", {
         method: "POST",
         body: JSON.stringify({
+          full_name: fullName.trim(),
           email: email.trim(),
           password,
           invite_code: inviteCode.trim(),
@@ -43,7 +45,7 @@ function Register() {
 
       setSuccess("Account created successfully. Redirecting to login...");
 
-      setTimeout(() => {
+      window.setTimeout(() => {
         navigate("/login");
       }, 1000);
     } catch (err) {
@@ -60,7 +62,7 @@ function Register() {
           <span className="brand-mark">S</span>
           <div>
             <h1 id="register-title">SocietWebAPP</h1>
-            <p>Connect. Help. Earn.</p>
+            <p>Connect. Help. Appreciate.</p>
           </div>
         </div>
 
@@ -71,7 +73,7 @@ function Register() {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label htmlFor="fullName">Full name</label>
-          <input id="fullName" type="text" autoComplete="name" placeholder="Enter your name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+          <input id="fullName" type="text" autoComplete="name" maxLength={120} placeholder="Enter your name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
 
           <label htmlFor="register-email">Email</label>
           <input id="register-email" type="email" autoComplete="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -82,8 +84,8 @@ function Register() {
           <label htmlFor="invite-code">Society invite code</label>
           <input id="invite-code" type="text" placeholder="Enter invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} required />
 
-          {error && <p className="form-error">{error}</p>}
-          {success && <p className="form-success">{success}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
+          {success && <p className="form-success" role="status">{success}</p>}
 
           <button type="submit" disabled={isLoading}>
             {isLoading ? "Creating account..." : "Create account"}
